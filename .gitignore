@@ -1,0 +1,17 @@
+# Артефакты сборки Swift Package Manager / Xcode
+.build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+
+# Пользовательские настройки Swift Playgrounds / Xcode
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+.swiftpm/configuration/
+
+# macOS
+.DS_Store
+
+# Случайные записи экрана и скриншоты, не относящиеся к проекту
+CleanShot*.mp4
+CleanShot*.png
