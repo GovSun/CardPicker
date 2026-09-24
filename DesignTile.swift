@@ -71,7 +71,18 @@ struct DesignTile: View {
     // такой зум заметно срезает края — на картах живописи в кадр лезет
     // логотип. Берём минимальный перелив: ровно столько, чтобы закрыть
     // разницу пропорций, без лишнего приближения.
-    private static let artOverscan: CGFloat = 1.04
+    // Кадрирование арта.
+    //
+    // В мастере (Figma 3632:80459) арт «image 378» переливает бокс в 1.42
+    // раза — но копировать это число НЕЛЬЗЯ: там лежит исходник
+    // 1536×1024 (пропорция 1.5, как у бокса), из которого вырезают центр.
+    // Наш арт уже кадрирован под карту: 1224×776 = 1.577.
+    //
+    // Для нашего исходника минимальный кроп — заполнить по ВЫСОТЕ:
+    // 1.577 / 1.5 = 1.051, то есть ~5% уходит по бокам поровну. Больший
+    // перелив срезает логотип VISA (проверено на симуляторе: при 1.42 от
+    // него оставалось «VIS»).
+    private static let artOverscan: CGFloat = 1.577 / 1.5      // ≈1.051
 
     private var art: some View {
         artImage
@@ -80,33 +91,37 @@ struct DesignTile: View {
     }
 
     private var artImage: some View {
-        GeometryReader { g in
-            RemoteImage(cardImage: card.image, kind: .mini, contentMode: .fill)
-                .frame(width: g.size.width * Self.artOverscan,
-                       height: g.size.height * Self.artOverscan)
-                .position(x: g.size.width / 2, y: g.size.height / 2)
-        }
+        RemoteImage(cardImage: card.image, kind: .mini, contentMode: .fill)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
     }
 
-    // Выбранное состояние (Figma node 3632:104233): арт ЗАТЕМНЯЕТСЯ
-    // сплошным чёрным 50% и поверх ложится белая галочка 20pt.
+    // Выбранное состояние — замерено с мастер-компонента Selected_item,
+    // вариант State=Selected (Figma 3632:80459):
+    //   фрейм: чёрный 20% + BACKGROUND_BLUR радиус 4
+    //   поверх: Overlay чёрный 50%
+    //   поверх: галочка-вектор 20×20, strokeWeight 4, белая
     //
-    // БЛЮРА ЗДЕСЬ НЕТ — и это главная правка. Прошлая версия размывала арт
-    // (blur 8 + белая плашка 5%) по устаревшему узлу 3584:66838. В текущем
-    // макете размытие осталось ТОЛЬКО у крышки «+N еще»; у выбранной плитки
-    // чистое затемнение. Разница важна не только формально: блюр съедал
-    // рисунок карты, а именно его пользователь и опознаёт — при выборе
-    // нужно приглушить арт, но не прятать его.
+    // Блюр здесь ЕСТЬ. В промежуточной версии я его убрал, сверившись с
+    // отдельным узлом grid_preview_card, где размытия нет, — но мастер
+    // собран иначе, и авторитетен он.
     @ViewBuilder
     private var selectionLayer: some View {
         if isSelected {
             ZStack {
+                // BACKGROUND_BLUR по арту под слоем. В SwiftUI нет
+                // backdrop-filter, поэтому размываем копию арта.
+                artImage
+                    .blur(radius: 4 * f, opaque: false)
+                Color.black.opacity(0.2)
                 Color.black.opacity(0.5)
+                // Макет 3632:104233: фрейм Check 32×32, внутри вектор 20×20
+                // с отступом 6 по кругу — то есть бокс глифа именно 32,
+                // а не 20. Путь из Check.svg уже построен в системе 32×32,
+                // поэтому рамка должна совпадать с ней, иначе штрих сжимается.
                 CheckGlyph()
                     .fill(.white)
-                    .frame(width: 20 * f, height: 20 * f)
-                    // Появление: 0.8 → 1 (не из нуля — ничто не возникает
-                    // из ничего). Уход — просто растворяется вместе со слоем.
+                    .frame(width: 32 * f, height: 32 * f)
                     .transition(.scale(scale: 0.8).combined(with: .opacity))
             }
             .transition(.opacity)
@@ -138,65 +153,67 @@ struct MoreLid: View {
 
     var body: some View {
         ZStack {
-            // Градиент из макета: linear-gradient(240deg, #2E2E2E 14%, #000 100%).
-            // 240° в CSS — направление «вниз-влево», т.е. старт сверху-справа.
-            LinearGradient(
-                stops: [
-                    .init(color: Color(hex: 0x2E2E2E), location: 0.14),
-                    .init(color: Color(hex: 0x000000), location: 1.0),
-                ],
-                startPoint: UnitPoint(x: 0.933, y: 0.0),
-                endPoint: UnitPoint(x: 0.067, y: 1.0)
-            )
-            .opacity(card == nil ? 0.92 : 0)
+            // Фолбэк-подложка, когда арт не передан (крышка невидима).
+            Color.black.opacity(card == nil ? 0.92 : 0)
 
-            // Макет 3632:111904: backdrop-blur(blur/xs ÷ 2) = 2pt поверх
-            // чёрного 20%. Блюр тут осмыслен, в отличие от выбранной плитки:
-            // под крышкой лежит НАСТОЯЩИЙ арт следующей карты, и размытие
-            // подсказывает, что там что-то есть, не выдавая деталей.
+            // Слои замерены с мастер-компонента Selected_item, вариант
+            // State=More (Figma 3632:80459):
+            //   фрейм  — чёрный 20% + BACKGROUND_BLUR радиус 4
+            //   Overlay — чёрный 50%, тоже с BACKGROUND_BLUR 4
+            // В SwiftUI нет backdrop-filter, поэтому размываем копию арта,
+            // а затемнения кладём поверх двумя слоями, как в макете.
             if let card {
-                GeometryReader { g in
-                    RemoteImage(cardImage: card.image, kind: .mini,
-                                contentMode: .fill)
-                        .frame(width: g.size.width * 1.04,
-                               height: g.size.height * 1.04)
-                        .position(x: g.size.width / 2, y: g.size.height / 2)
-                }
-                .blur(radius: 2 * f, opaque: false)
+                artImage(card)
+                    .blur(radius: 4 * f, opaque: false)
             }
             Color.black.opacity(0.2)
+            Color.black.opacity(0.5)
 
+            // Текстовый блок 24×37: «+N» 17pt, «еще» 13pt (мастер).
             VStack(spacing: 0) {
                 Text("+\(count)")
                     .font(.system(size: 17 * f, weight: .medium))
-                    .frame(height: 20.4 * f)
+                    .frame(height: 21 * f)
                 Text("еще")
                     .font(.system(size: 13 * f, weight: .regular))
-                    .frame(height: 15.6 * f)
+                    .frame(height: 16 * f)
             }
             .foregroundStyle(.white)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Показать ещё \(count)"))
     }
+
+    /// Тот же кроп, что у обычной плитки, — иначе размытый арт под
+    /// крышкой кадрировался бы иначе, чем соседние карты.
+    private func artImage(_ card: CardItem) -> some View {
+        RemoteImage(cardImage: card.image, kind: .mini, contentMode: .fill)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+    }
 }
 
 
 // MARK: - Галочка выбора (Figma node 3584:66838)
 //
-// Рисуем путь сами, а не берём SF Symbol «checkmark»: у системного глифа при
-// .bold РАЗНАЯ толщина плеч (замер: 4.0 против 5.33pt) и скошенные торцы,
-// из-за чего он читается грубее макетного. Здесь — ровная линия со
-// скруглёнными концами, вписанная в бокс 24×24.
+// Путь взят 1:1 из Check.svg, который прислал дизайнер, а не нарисован
+// на глаз и не взят из SF Symbols: у системного глифа разная толщина
+// плеч и скошенные торцы, он читается грубее.
 struct CheckGlyph: Shape {
     func path(in rect: CGRect) -> Path {
-        let s = min(rect.width, rect.height) / 24
+        // Путь 1:1 из Check.svg (viewBox 32×32, stroke-width 4,
+        // round cap/join):
+        //   M26 6 C 26 6, 15.4 17.2889, 12.6667 26 L 6 19.3333
+        let s = min(rect.width, rect.height) / 32
         var p = Path()
-        p.move(to: CGPoint(x: 4.5 * s, y: 12.8 * s))
-        p.addLine(to: CGPoint(x: 9.6 * s, y: 18.0 * s))
-        p.addLine(to: CGPoint(x: 19.5 * s, y: 6.4 * s))
+        p.move(to: CGPoint(x: 26 * s, y: 6 * s))
+        p.addCurve(to: CGPoint(x: 12.6667 * s, y: 26 * s),
+                   control1: CGPoint(x: 26 * s, y: 6 * s),
+                   control2: CGPoint(x: 15.4 * s, y: 17.2889 * s))
+        p.addLine(to: CGPoint(x: 6 * s, y: 19.3333 * s))
         return p.strokedPath(
-            .init(lineWidth: 2.6 * s, lineCap: .round, lineJoin: .round)
+            .init(lineWidth: 4 * s, lineCap: .round, lineJoin: .round)
         )
     }
 }
+

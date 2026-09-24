@@ -25,6 +25,15 @@ enum ArtEndpoint {
            !s.isEmpty, let u = URL(string: s) {
             return u
         }
-        return nil
+        return defaultBase
     }
+
+    /// Адрес по умолчанию.
+    ///
+    /// Он нужен именно здесь, а не только в env: на устройстве приложение
+    /// запускают с домашнего экрана, где переменную окружения передать
+    /// нечем, а своего Info.plist у .swiftpm нет. Без дефолта телефон
+    /// молча уходил на локальный CardArt/ — и показывал устаревший арт
+    /// (например, карты с логотипом Visa в сетке).
+    private static let defaultBase = URL(string: "https://minio.o.kg/media-service")
 }

@@ -89,7 +89,7 @@ struct SheetPickerView: View {
                     appbar(f: f).padding(.top, topInset)
                     cardHero(f: f)
                         .padding(.top, 20 * f)
-                        .padding(.horizontal, 16 * f)
+                        .padding(.horizontal, 37 * f)
                         .onTapGesture { setSheet(.collapsed) }
                     // Макет 3632:118391 — имя и описание ВЫБРАННОГО дизайна.
                     // (Раньше здесь по ошибке стоял дисклеймер из референса
@@ -103,7 +103,8 @@ struct SheetPickerView: View {
                             .foregroundStyle(Tokens.onDarkSecondary)
                     }
                     .multilineTextAlignment(.center)
-                    .padding(.top, 16 * f)
+                    // Макет: gap 20 между картой и подписью, поля 24.
+                    .padding(.top, 20 * f)
                     .padding(.horizontal, 24 * f)
                     .animation(MotionTokens.transition(reduceMotion: reduceMotion),
                                value: model.selectedGlobal)
@@ -390,11 +391,14 @@ struct SheetPickerView: View {
     }
 
     private func cardHero(f: CGFloat) -> some View {
+        // Макет 3748:58407 (Card_base): 300×188, радиус 8, поля по бокам 37.
+        // Было 216 высоты и радиус 16 — карта выглядела крупнее и мягче,
+        // чем в дизайне.
         RemoteImage(cardImage: model.selectedCard.image, kind: .detail, contentMode: .fill)
-            .frame(height: 216 * f)
+            .frame(height: 188 * f)
             .frame(maxWidth: .infinity)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 16 * f, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 8 * f, style: .continuous))
             .shadow(color: .black.opacity(0.4), radius: 16 * f, y: 10 * f)
             // Карта живёт под шитом и меняется по тапу, даже когда её не видно:
             // свернув шит, пользователь должен увидеть уже новый дизайн.

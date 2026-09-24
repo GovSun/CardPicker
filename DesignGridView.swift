@@ -35,10 +35,11 @@ struct DesignGridView: View {
     @State private var didInitialScroll = false
 
     private static let columns = 3
-    /// Зазор между плитками в ряду. Макет 3748:59873: x = 15.5 / 131.5 /
-    /// 247.5 при ширине арта 108 → шаг 116, значит зазор 8 (а не 4, как
-    /// было свёрстано по устаревшему узлу).
-    private static let gap: CGFloat = 8
+    /// Зазор между плитками в ряду. Макет 3748:59873 читается напрямую:
+    /// у ряда gap=4 и padding 16 по бокам, шаг 116 = инстанс 112 + 4.
+    /// (112 — это арт 108 плюс его собственный padding 2 по кругу.)
+    /// Раньше здесь стояло 8: шаг считался от ширины АРТА, а не инстанса.
+    private static let gap: CGFloat = 4
     /// Зазор между РЯДАМИ остаётся 4 (макет: y = 0 и 80 при высоте 76).
     private static let rowGap: CGFloat = 4
 
@@ -47,9 +48,11 @@ struct DesignGridView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     Color.clear
-                        // В A/B сверху лежит аппбар и нужен зазор; в шите
-                        // варианта C аппбара над сеткой нет — тогда 0.
-                        .frame(height: max(0, topInset + 60 * f))
+                        // В A/B сверху лежит аппбар и нужен большой зазор.
+                        // В шите варианта C аппбара над сеткой нет, но и
+                        // впритык к кромке шита первый ряд прижимать нельзя —
+                        // держим минимум 4pt воздуха.
+                        .frame(height: max(4 * f, topInset + 60 * f))
                     ForEach(model.collections.indices, id: \.self) { ci in
                         section(ci)
                             .id(model.anchorID(collection: ci))
@@ -130,8 +133,8 @@ struct DesignGridView: View {
         let expanded = model.isExpanded(ci)
         let overflow = model.overflowCount(ci)
 
-        // Figma: VStack gap 12 между хедером и сеткой.
-        VStack(alignment: .leading, spacing: 12 * f) {
+        // Figma 3748:59870 — Block_collection: gap 4 между хедером и рядами.
+        VStack(alignment: .leading, spacing: 4 * f) {
             header(c)
             grid(ci: ci, collection: c, expanded: expanded, overflow: overflow)
             if expanded && overflow > 0 {
@@ -144,11 +147,14 @@ struct DesignGridView: View {
     // Figma «Divider label»: gap 4, py 8; заголовок 17/bold в строке min 32,
     // описание 15/regular #DDD, lineHeight 1.25, до 3 строк, оба с px 16.
     private func header(_ c: CardCollection) -> some View {
-        VStack(alignment: .leading, spacing: 4 * f) {
+        // Макет 3748:59871 (Divider label): вертикальный gap 0 — воздух
+        // между заголовком и описанием даёт бокс заголовка (32pt при
+        // кегле 17), а не отдельный spacing.
+        VStack(alignment: .leading, spacing: 0) {
             Text(c.sheetTitle)
                 .font(.system(size: 17 * f, weight: .bold))
                 .foregroundStyle(onLight ? Tokens.textPrimary : .white)
-                .frame(minHeight: 32 * f, alignment: .leading)
+                .frame(height: 32 * f, alignment: .leading)
             Text(c.desc)
                 .font(.system(size: 15 * f, weight: .regular))
                 .lineSpacing(15 * f * 0.25)

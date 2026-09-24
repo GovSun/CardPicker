@@ -28,7 +28,11 @@ enum CardArtSource {
         case full
         /// Круглое превью под каруселью — customize_design_card/change_design_preview/
         case preview
-        /// Плитка в сетке («списком») — mybank/
+        /// Плитка в сетке («списком») —
+        /// customize_design_card/change_design_preview_list/
+        /// Это арт БЕЗ логотипа Visa: в сетке логотип не нужен, он мелкий
+        /// и лезет в обрез. В `mybank/` лежат карты С логотипом — они идут
+        /// в другие места.
         case mini
 
         var folder: String {
@@ -36,7 +40,7 @@ enum CardArtSource {
             case .detail:  return "mybank/bank-cards/dark"
             case .full:    return "mybank/customize_design_card/change_design_animation_card"
             case .preview: return "mybank/customize_design_card/change_design_preview"
-            case .mini:    return "mybank/"
+            case .mini:    return "mybank/customize_design_card/change_design_preview_list"
             }
         }
 
